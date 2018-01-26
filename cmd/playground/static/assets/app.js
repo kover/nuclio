@@ -1868,11 +1868,7 @@ $(function () {
                     '<li><select id="triggers-kind" class="dropdown" title="Each trigger kind has a different set of fields to fill">' +
                         '<option value="">Select kind...</option>' +
                         '<option value="http">HTTP</option>' +
-                        '<option value="rabbit-mq">RabbitMQ</option>' +
-                        '<option value="kafka">Kafka</option>' +
-                        '<option value="kinesis">Kinesis</option>' +
                         '<option value="nats">NATS</option>' +
-                        '<option value="v3ioItemPoller">v3io</option>' +
                     '</select></li>' +
                     '<li class="triggers-field"><input type="text" id="triggers-v3io-paths" class="text-input" title="Paths (e.g. path1, path2)" placeholder="Paths, e.g. path1, path2..."></li>' +
                     '<li class="triggers-field"><input type="text" id="triggers-url" class="text-input" title="URL" placeholder="URL..."></li>' +

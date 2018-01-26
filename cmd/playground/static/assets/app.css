@@ -514,7 +514,6 @@ ul, li {
 }
 #logo {
     flex: 0 0 10%;
-    background-image: url('images/nuclio-logo-white-text.png');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: left center;
