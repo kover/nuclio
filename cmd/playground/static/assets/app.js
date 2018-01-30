@@ -2155,36 +2155,12 @@ $(function () {
                 label: 'Select kind...'
             },
             {
-                value: 'eventhub',
-                label: 'Azure Event Hub'
-            },
-            {
                 value: 'http',
                 label: 'HTTP'
             },
             {
-                value: 'rabbit-mq',
-                label: 'RabbitMQ'
-            },
-            {
-                value: 'kafka',
-                label: 'Kafka'
-            },
-            {
-                value: 'kinesis',
-                label: 'Kinesis'
-            },
-            {
                 value: 'nats',
-                label: 'NATS'
-            },
-            {
-                value: 'v3ioItemPoller',
-                label: 'v3io'
-            },
-            {
-                value: 'cron',
-                label: 'cron'
+                label: 'DataHub'
             }
         ]
     };
