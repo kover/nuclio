@@ -21,16 +21,16 @@ import (
 
 	"github.com/nuclio/nuclio/pkg/functionconfig"
 	"github.com/nuclio/nuclio/pkg/platform"
-	"github.com/nuclio/nuclio/pkg/zap"
 
-	"github.com/nuclio/nuclio-sdk"
+	"github.com/nuclio/logger"
+	"github.com/nuclio/zap"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/suite"
 )
 
 type TestSuite struct {
 	suite.Suite
-	Logger  nuclio.Logger
+	Logger  logger.Logger
 	Builder *Builder
 	TestID  string
 }
@@ -118,6 +118,84 @@ func (suite *TestSuite) TestGetRuntimeNameFromBuildDirNoRuntime() {
 	if err == nil {
 		suite.Fail("Builder.getRuntimeName() should fail when given a directory for a build path and no runtime")
 	}
+}
+
+func (suite *TestSuite) TestGetImageSpecificCommandsReturnsEmptyOnUnknownBaseImage() {
+	var expectedResult []string = nil
+	result := suite.Builder.getImageSpecificCommands("foo")
+
+	suite.Require().Equal(expectedResult, result)
+}
+
+func (suite *TestSuite) TestGetImageSpecificCommandsAddsCaCertificatesFlagForAlpine() {
+	result := suite.Builder.getImageSpecificCommands("alpine")
+
+	suite.Require().EqualValues([]string{"apk update && apk add --update ca-certificates && rm -rf /var/cache/apk/*"}, result)
+}
+
+func (suite *TestSuite) TestGetImageSpecificEnvVarsReturnsEmptyOnUnknownBaseImage() {
+	var expectedResult []string = nil
+	result := suite.Builder.getImageSpecificEnvVars("foo")
+
+	suite.Require().Equal(expectedResult, result)
+}
+
+func (suite *TestSuite) TestGetImageSpecificEnvVarsAddsNonInteractiveFlagForJessie() {
+	result := suite.Builder.getImageSpecificEnvVars("jessie")
+
+	suite.Require().EqualValues([]string{"DEBIAN_FRONTEND noninteractive"}, result)
+}
+
+func (suite *TestSuite) TestReplaceBuildCommandDirectivesReturnsNewDirectives() {
+	commands := []string{
+		"test 1",
+		"test 2",
+	}
+	result := suite.Builder.replaceBuildCommandDirectives(commands, "")
+	commands = append(commands, "test 3")
+
+	suite.Require().NotEqual(commands, result)
+	suite.Require().EqualValues(commands, append(result, "test 3"))
+}
+
+func (suite *TestSuite) TestReplaceBuildCommandDirectivesOverwritesKnownDirectives() {
+	commands := []string{
+		"test 1",
+		"@nuclio.noCache",
+	}
+	result := suite.Builder.replaceBuildCommandDirectives(commands, "foo")
+
+	suite.Require().NotEqual(commands, result)
+	suite.Require().Equal("RUN echo foo > /dev/null", result[1])
+}
+
+func (suite *TestSuite) TestReplaceBuildCommandDirectivesIgnoresUnknownDirectives() {
+	commands := []string{
+		"test 1",
+		"@nuclio.bla",
+	}
+	result := suite.Builder.replaceBuildCommandDirectives(commands, "")
+
+	suite.Require().EqualValues(commands, result)
+}
+
+func (suite *TestSuite) TestGetImageName() {
+
+	// user specified
+	suite.Builder.options.FunctionConfig.Spec.Build.ImageName = "userSpecified"
+	suite.Require().Equal("userSpecified", suite.Builder.getImageName())
+
+	// set function name and clear image name
+	suite.Builder.options.FunctionConfig.Meta.Name = "test"
+	suite.Builder.options.FunctionConfig.Spec.Build.ImageName = ""
+
+	// registry has no repository - should see "nuclio/" as repository
+	suite.Builder.options.FunctionConfig.Spec.Build.Registry = "localhost:5000"
+	suite.Require().Equal("nuclio/processor-test", suite.Builder.getImageName())
+
+	// registry has a repository - should not see "nuclio/" as repository
+	suite.Builder.options.FunctionConfig.Spec.Build.Registry = "registry.hub.docker.com/foo"
+	suite.Require().Equal("processor-test", suite.Builder.getImageName())
 }
 
 func TestBuilderSuite(t *testing.T) {

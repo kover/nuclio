@@ -45,7 +45,7 @@ func (suite *TestSuite) TestOutputs() {
 
 	expectedResponseHeaders := map[string]string{
 		"content-type": "text/plain; charset=utf-8",
-		"header1": "value1",
+		"header1":      "value1",
 	}
 
 	deployOptions := suite.GetDeployOptions("outputter",
@@ -127,6 +127,17 @@ func (suite *TestSuite) TestOutputs() {
 
 		return true
 	})
+}
+
+func (suite *TestSuite) TestStress() {
+
+	// Create blastConfiguration using default configurations + changes for shell specification
+	blastConfiguration := suite.NewBlastConfiguration()
+	blastConfiguration.Handler = "outputter.sh:main"
+	blastConfiguration.WorkersDeployDelay = 60
+
+	// Create stress test using suite.BlastHTTP
+	suite.BlastHTTP(blastConfiguration)
 }
 
 func TestIntegrationSuite(t *testing.T) {

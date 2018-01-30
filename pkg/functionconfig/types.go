@@ -24,13 +24,14 @@ import (
 
 // DataBinding holds configuration for a databinding
 type DataBinding struct {
-	Name    string            `json:"name,omitempty"`
-	Class   string            `json:"class"`
-	URL     string            `json:"url"`
-	Path    string            `json:"path,omitempty"`
-	Query   string            `json:"query,omitempty"`
-	Secret  string            `json:"secret,omitempty"`
-	Options map[string]string `json:"options,omitempty"`
+	Name       string            `json:"name,omitempty"`
+	Class      string            `json:"class"`
+	Kind       string            `json:"kind"`
+	URL        string            `json:"url"`
+	Path       string            `json:"path,omitempty"`
+	Query      string            `json:"query,omitempty"`
+	Secret     string            `json:"secret,omitempty"`
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
 // Trigger holds configuration for a trigger
@@ -106,8 +107,14 @@ func GetIngressesFromTriggers(triggers map[string]Trigger) (ingresses map[string
 // Ingress holds configuration for an ingress - an entity that can route HTTP requests
 // to the function
 type Ingress struct {
-	Host  string
-	Paths []string
+	Host  string   `json:"host,omitempty"`
+	Paths []string `json:"paths,omitempty"`
+}
+
+// LoggerSink overrides the default platform configuration for function loggers
+type LoggerSink struct {
+	Level string `json:"level,omitempty"`
+	Sink  string `json:"sink,omitempty"`
 }
 
 // Build holds all configuration parameters related to building a function
@@ -122,6 +129,7 @@ type Build struct {
 	ImageName          string            `json:"imageName,omitempty"`
 	ImageVersion       string            `json:"imageVersion,omitempty"`
 	NoBaseImagesPull   bool              `json:"noBaseImagesPull,omitempty"`
+	NoCache            bool              `json:"noCache,omitempty"`
 	NoCleanup          bool              `json:"noCleanup,omitempty"`
 	BaseImageName      string            `json:"baseImageName,omitempty"`
 	Commands           []string          `json:"commands,omitempty"`
@@ -150,6 +158,7 @@ type Spec struct {
 	Build             Build                   `json:"build,omitempty"`
 	RunRegistry       string                  `json:"runRegistry,omitempty"`
 	RuntimeAttributes map[string]interface{}  `json:"runtimeAttributes,omitempty"`
+	LoggerSinks       []LoggerSink            `json:"loggerSinks,omitempty"`
 }
 
 func (s *Spec) GetRuntimeNameAndVersion() (string, string) {

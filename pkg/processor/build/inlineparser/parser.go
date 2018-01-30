@@ -24,12 +24,14 @@ import (
 
 	"github.com/nuclio/nuclio/pkg/errors"
 
-	"github.com/nuclio/nuclio-sdk"
+	"github.com/nuclio/logger"
 	"gopkg.in/yaml.v2"
 )
 
+const StartBlockKeyword = "@nuclio."
+
 type Parser struct {
-	logger                  nuclio.Logger
+	logger                  logger.Logger
 	currentStateLineHandler func(line string) error
 	currentBlockName        string
 	currentBlockContents    string
@@ -39,13 +41,13 @@ type Parser struct {
 }
 
 // NewParser creates an inline parser
-func NewParser(parentLogger nuclio.Logger) (*Parser, error) {
+func NewParser(parentLogger logger.Logger) (*Parser, error) {
 	return &Parser{
 		logger: parentLogger.GetChild("inlineparser"),
 	}, nil
 }
 
-// Parse looks for a block start with a comment character and "@nuclio.". It then adds this
+// Parse looks for a block starting with a comment character and "@nuclio.". It then adds this
 // to the list of inline configuration blocks. For example
 //
 // @nuclio.configure
@@ -66,10 +68,12 @@ func (p *Parser) Parse(reader io.Reader, commentChar string) (map[string]map[str
 	// prepare stuff for states
 	p.currentBlocks = map[string]map[string]interface{}{}
 	p.currentCommentChar = commentChar
-	p.startBlockPattern = fmt.Sprintf("%s @nuclio.", commentChar)
+	p.startBlockPattern = fmt.Sprintf("%s %s", commentChar, StartBlockKeyword)
 
 	// init state to looking for start block
 	p.currentStateLineHandler = p.lookingForStartBlockStateHandleLine
+
+	p.logger.DebugWith("Starting to look for block pattern", "pattern", p.startBlockPattern)
 
 	// read a line
 	for scanner.Scan() {
@@ -89,7 +93,8 @@ func (p *Parser) lookingForStartBlockStateHandleLine(line string) error {
 	if strings.HasPrefix(line, p.startBlockPattern) {
 
 		// set current block name: `// @nuclio.createFiles` -> `createFiles`
-		p.currentBlockName = line[len(p.startBlockPattern):]
+		p.currentBlockName = strings.Trim(line[len(p.startBlockPattern):], " ")
+		p.logger.DebugWith("Found block start", "block name", p.currentBlockName)
 
 		// switch state
 		p.currentStateLineHandler = p.readingBlockStateHandleLine
@@ -103,6 +108,8 @@ func (p *Parser) readingBlockStateHandleLine(line string) error {
 	// if the line doesn't start with a comment character, close the block
 	if !strings.HasPrefix(line, p.currentCommentChar) {
 		unmarshalledBlock := map[string]interface{}{}
+
+		p.logger.DebugWith("Found block end", "contentsLen", len(p.currentBlockContents))
 
 		// parse yaml
 		if err := yaml.Unmarshal([]byte(p.currentBlockContents), &unmarshalledBlock); err != nil {

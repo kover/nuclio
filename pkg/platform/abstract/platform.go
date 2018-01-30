@@ -17,13 +17,11 @@ limitations under the License.
 package abstract
 
 import (
-	"io"
-
 	"github.com/nuclio/nuclio/pkg/errors"
 	"github.com/nuclio/nuclio/pkg/platform"
 	"github.com/nuclio/nuclio/pkg/processor/build"
 
-	"github.com/nuclio/nuclio-sdk"
+	"github.com/nuclio/logger"
 )
 
 //
@@ -31,12 +29,12 @@ import (
 //
 
 type Platform struct {
-	Logger   nuclio.Logger
+	Logger   logger.Logger
 	platform platform.Platform
 	invoker  *invoker
 }
 
-func NewPlatform(parentLogger nuclio.Logger, platform platform.Platform) (*Platform, error) {
+func NewPlatform(parentLogger logger.Logger, platform platform.Platform) (*Platform, error) {
 	var err error
 
 	newPlatform := &Platform{
@@ -124,6 +122,10 @@ func (ap *Platform) HandleDeployFunction(deployOptions *platform.DeployOptions,
 		return nil, errors.Wrap(err, "Failed to deploy")
 	}
 
+	if deployResult == nil {
+		return nil, errors.New("Deployer returned no error, but nil deploy result")
+	}
+
 	// update deploy result with build result
 	if buildResult != nil {
 		deployResult.BuildResult = *buildResult
@@ -135,8 +137,8 @@ func (ap *Platform) HandleDeployFunction(deployOptions *platform.DeployOptions,
 }
 
 // InvokeFunction will invoke a previously deployed function
-func (ap *Platform) InvokeFunction(invokeOptions *platform.InvokeOptions, writer io.Writer) error {
-	return ap.invoker.invoke(invokeOptions, writer)
+func (ap *Platform) InvokeFunction(invokeOptions *platform.InvokeOptions) (*platform.InvokeResult, error) {
+	return ap.invoker.invoke(invokeOptions)
 }
 
 // GetDeployRequiresRegistry returns true if a registry is required for deploy, false otherwise

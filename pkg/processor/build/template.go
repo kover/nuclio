@@ -18,8 +18,10 @@ package build
 
 var processorImageDockerfileTemplate = `FROM {{baseImageName}}
 
-{{range $sourcePath, $destPath := objectsToCopy}}
-COPY {{$sourcePath}} {{$destPath}}
+{{if envVarsToAdd}}
+{{range envVarsToAdd}}
+ENV {{.}}
+{{end}}
 {{end}}
 
 {{if commandsToRun}}
@@ -28,5 +30,9 @@ RUN {{.}}
 {{end}}
 {{end}}
 
-CMD [ "processor", "--config", "/etc/nuclio/processor.yaml" ]
+{{range $sourcePath, $destPath := objectsToCopy}}
+COPY {{$sourcePath}} {{$destPath}}
+{{end}}
+
+CMD [ "processor", "--config", "/etc/nuclio/config/processor/processor.yaml", "--platform-config", "/etc/nuclio/config/platform/platform.yaml" ]
 `

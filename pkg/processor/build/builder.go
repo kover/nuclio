@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/nuclio/nuclio/pkg/common"
 	"github.com/nuclio/nuclio/pkg/dockerclient"
@@ -41,7 +42,7 @@ import (
 	_ "github.com/nuclio/nuclio/pkg/processor/build/runtime/shell"
 	"github.com/nuclio/nuclio/pkg/processor/build/util"
 
-	"github.com/nuclio/nuclio-sdk"
+	"github.com/nuclio/logger"
 	"gopkg.in/yaml.v2"
 )
 
@@ -55,7 +56,7 @@ const (
 )
 
 type Builder struct {
-	logger nuclio.Logger
+	logger logger.Logger
 
 	options *platform.BuildOptions
 
@@ -90,7 +91,7 @@ type Builder struct {
 	}
 }
 
-func NewBuilder(parentLogger nuclio.Logger) (*Builder, error) {
+func NewBuilder(parentLogger logger.Logger) (*Builder, error) {
 	var err error
 
 	newBuilder := &Builder{
@@ -149,8 +150,8 @@ func (b *Builder) Build(options *platform.BuildOptions) (*platform.BuildResult, 
 		return nil, errors.Wrap(err, "Failed create runtime")
 	}
 
-	// once we're done reading our configuration, we may still have to fill in the blanks because
-	// since the user isn't obligated to always pass all the configuration
+	// once we're done reading our configuration, we may still have to fill in the blanks
+	// because the user isn't obligated to always pass all the configuration
 	if err = b.enrichConfiguration(); err != nil {
 		return nil, errors.Wrap(err, "Failed to enrich configuration")
 	}
@@ -290,11 +291,7 @@ func (b *Builder) enrichConfiguration() error {
 
 	// if output image name isn't set, set it to a derivative of the name
 	if b.processorImage.imageName == "" {
-		if b.options.FunctionConfig.Spec.Build.ImageName == "" {
-			b.processorImage.imageName = fmt.Sprintf("nuclio/processor-%s", b.GetFunctionName())
-		} else {
-			b.processorImage.imageName = b.options.FunctionConfig.Spec.Build.ImageName
-		}
+		b.processorImage.imageName = b.getImageName()
 	}
 
 	// if tag isn't set - use "latest"
@@ -302,7 +299,51 @@ func (b *Builder) enrichConfiguration() error {
 		b.processorImage.imageTag = "latest"
 	}
 
+	// if the registry URL is prefixed with https:// or http://, remove it
+	for _, registryURL := range []*string{
+		&b.options.FunctionConfig.Spec.Build.Registry,
+		&b.options.FunctionConfig.Spec.RunRegistry,
+	} {
+		if *registryURL != "" {
+			*registryURL = b.stripRegistryScheme(*registryURL)
+		}
+	}
+
 	return nil
+}
+
+func (b *Builder) stripRegistryScheme(url string) string {
+	for _, prefix := range []string{
+		"https://",
+		"http://",
+	} {
+		url = strings.TrimPrefix(url, prefix)
+	}
+
+	return url
+}
+
+func (b *Builder) getImageName() string {
+	var imageName string
+
+	if b.options.FunctionConfig.Spec.Build.ImageName == "" {
+		repository := "nuclio/"
+
+		// try to see if the registry URL has a repository specified (e.g. localhost:5000/foo). If so,
+		// don't use "nuclio/", just use that repository
+		parsedRegistryURL, err := url.Parse(b.options.FunctionConfig.Spec.Build.Registry)
+		if err == nil {
+			if len(parsedRegistryURL.Path) > 0 {
+				repository = ""
+			}
+		}
+
+		imageName = fmt.Sprintf("%sprocessor-%s", repository, b.GetFunctionName())
+	} else {
+		imageName = b.options.FunctionConfig.Spec.Build.ImageName
+	}
+
+	return imageName
 }
 
 func (b *Builder) resolveFunctionPath(functionPath string) (string, error) {
@@ -433,8 +474,11 @@ func (b *Builder) getRuntimeName() (string, error) {
 	if runtimeName == "" {
 
 		// if the function path is a directory, runtime must be specified in the command-line arguments or configuration
-		if common.IsDir(b.options.FunctionConfig.Spec.Build.Path) &&
-			!common.FileExists(path.Join(b.options.FunctionConfig.Spec.Build.Path, functionConfigFileName)) {
+		if common.IsDir(b.options.FunctionConfig.Spec.Build.Path) {
+			if common.FileExists(path.Join(b.options.FunctionConfig.Spec.Build.Path, functionConfigFileName)) {
+				return "", errors.New("Build path is directory - function.yaml must specify runtime")
+			}
+
 			return "", errors.New("Build path is directory - runtime must be specified")
 		}
 
@@ -606,7 +650,7 @@ func (b *Builder) buildProcessorImage() (string, error) {
 	err = b.dockerClient.Build(&dockerclient.BuildOptions{
 		ImageName:      imageName,
 		DockerfilePath: processorDockerfilePathInStaging,
-		NoCache:        true,
+		NoCache:        b.options.FunctionConfig.Spec.Build.NoCache,
 	})
 
 	return imageName, err
@@ -620,12 +664,20 @@ func (b *Builder) createProcessorDockerfile() (string, error) {
 		return "", errors.Wrap(err, "Could not find a proper base image for processor")
 	}
 
+	preprocessedCommands, err := b.preprocessBuildCommands(b.options.FunctionConfig.Spec.Build.Commands, baseImageName)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to pre-process processor docker file")
+	}
+
+	imageSpecificVars := b.getImageSpecificEnvVars(baseImageName)
+
 	processorDockerfileTemplateFuncs := template.FuncMap{
 		"pathBase":      path.Base,
 		"isDir":         common.IsDir,
 		"objectsToCopy": b.getObjectsToCopyToProcessorImage,
 		"baseImageName": func() string { return baseImageName },
-		"commandsToRun": func() []string { return b.options.FunctionConfig.Spec.Build.Commands },
+		"commandsToRun": func() []string { return preprocessedCommands },
+		"envVarsToAdd":  func() []string { return imageSpecificVars },
 	}
 
 	processorDockerfileTemplate, err := template.New("").
@@ -644,7 +696,7 @@ func (b *Builder) createProcessorDockerfile() (string, error) {
 
 	b.logger.DebugWith("Creating Dockerfile from template",
 		"baseImage", baseImageName,
-		"commands", b.options.FunctionConfig.Spec.Build.Commands,
+		"commands", preprocessedCommands,
 		"dest", processorDockerfilePathInStaging)
 
 	if err = processorDockerfileTemplate.Execute(processorDockerfileInStaging, nil); err != nil {
@@ -652,6 +704,77 @@ func (b *Builder) createProcessorDockerfile() (string, error) {
 	}
 
 	return processorDockerfilePathInStaging, nil
+}
+
+func (b *Builder) preprocessBuildCommands(commands []string, imageName string) ([]string, error) {
+	processedCommands := b.getImageSpecificCommands(imageName)
+
+	processedCommands = append(processedCommands, b.replaceBuildCommandDirectives(commands, "")...)
+
+	return processedCommands, nil
+}
+
+func (b *Builder) getImageSpecificCommands(imageName string) []string {
+	commandsPerImage := map[string][]string{
+		"alpine": {
+			"apk update && apk add --update ca-certificates && rm -rf /var/cache/apk/*",
+		},
+	}
+	var commands []string
+
+	for image, imageSpecificCommands := range commandsPerImage {
+		if strings.Contains(imageName, image) {
+			commands = append(commands, imageSpecificCommands...)
+		}
+	}
+
+	return commands
+}
+
+// replace known keywords in docker command list with directives
+// currentTime can be null - used for testing
+func (b *Builder) replaceBuildCommandDirectives(commands []string, currentTime string) []string {
+	var processedCommands []string
+
+	if currentTime == "" {
+		currentTime = time.Now().String()
+	}
+	knownKeywords := map[string]string{
+		"noCache": fmt.Sprintf("RUN echo %s > /dev/null", currentTime),
+	}
+
+	for _, command := range commands {
+		if strings.HasPrefix(command, inlineparser.StartBlockKeyword) {
+			commandKey := command[len(inlineparser.StartBlockKeyword):]
+			if commandReplacement, ok := knownKeywords[commandKey]; ok {
+				processedCommands = append(processedCommands, commandReplacement)
+				continue
+			} else {
+				processedCommands = append(processedCommands, command)
+			}
+		} else {
+			processedCommands = append(processedCommands, command)
+		}
+	}
+
+	return processedCommands
+}
+
+func (b *Builder) getImageSpecificEnvVars(imageName string) []string {
+	commandsPerImage := map[string][]string{
+		"jessie": {
+			"DEBIAN_FRONTEND noninteractive",
+		},
+	}
+	var envVars []string
+
+	for image, imageSpecificCommands := range commandsPerImage {
+		if strings.Contains(imageName, image) {
+			envVars = append(envVars, imageSpecificCommands...)
+		}
+	}
+
+	return envVars
 }
 
 // returns a map where key is the relative path into staging of a file that needs
