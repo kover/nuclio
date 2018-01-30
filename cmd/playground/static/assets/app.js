@@ -1037,7 +1037,7 @@ $(function () {
     };
 
     var loadedUrl = urlParser();
-    var workingUrl = getWorkingUrl();
+    var workingUrl = getWorkingUrl() + '/loopfunctions';
 
     /**
      * Gets the URL to work with - take the protocol, host and port number from address bar
@@ -1453,8 +1453,8 @@ $(function () {
      * Loads a function's source to the code editor and its settings to the "Configure"/"Triggers" tabs
      */
     function loadSelectedFunction() {
-        var path = _.get(selectedFunction, 'spec.build.path', '');
-        var fileExtension = extractFileName(path, true, true); // two `true` values for including extension only
+        var path = '/loopfunctions' + _.get(selectedFunction, 'spec.build.path', '');
+	var fileExtension = extractFileName(path, true, true); // two `true` values for including extension only
         loadSource(path)
             .done(function (responseText) {
                 var enabled              = !_.get(selectedFunction, 'spec.disable', false);
