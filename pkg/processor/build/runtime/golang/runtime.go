@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	handlerBuilderImageName = "nuclio/handler-builder-golang"
+	handlerBuilderImageName = "quay.io/loop/handler-builder-golang"
 )
 
 type golang struct {
@@ -183,7 +183,7 @@ func (g *golang) buildHandlerBuilderImage(stagingDir string) error {
 		return errors.Wrap(err, "Failed to get version info")
 	}
 
-	handlerBuilderOnBuildImageName := fmt.Sprintf("nuclio/handler-builder-golang-onbuild:%s-%s",
+	handlerBuilderOnBuildImageName := fmt.Sprintf("quay.io/loop/handler-builder-golang-onbuild:%s-%s",
 		versionInfo.Label,
 		versionInfo.Arch)
 

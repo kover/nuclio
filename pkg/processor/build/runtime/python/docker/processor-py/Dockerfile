@@ -19,7 +19,7 @@ ARG NUCLIO_PYTHON_OS=alpine3.6
 # Build stage: builds the processor binary
 #
 
-FROM nuclio/processor as build
+FROM quay.io/loop/processor as build
 
 #
 # Output stage

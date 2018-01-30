@@ -38,7 +38,7 @@ func (s *shell) GetProcessorBaseImageName() (string, error) {
 		return "", errors.Wrap(err, "Failed to get version info")
 	}
 
-	return fmt.Sprintf("nuclio/processor-shell-alpine:%s-%s",
+	return fmt.Sprintf("quay.io/loop/processor-shell-alpine:%s-%s",
 		versionInfo.Label,
 		versionInfo.Arch), nil
 }

@@ -63,16 +63,16 @@ if __name__ == '__main__':
     tag = '{0}-amd64'.format(os.environ.get('NUCLIO_TAG', 'latest'))
 
     for image_url in [
-        'nuclio/controller',
-        'nuclio/playground',
-        'nuclio/processor-py2.7-alpine',
-        'nuclio/processor-py2.7-jessie',
-        'nuclio/processor-py3.6-alpine',
-        'nuclio/processor-py3.6-jessie',
-        'nuclio/handler-builder-golang-onbuild',
-        'nuclio/processor-pypy2-5.9-jessie',
-        'nuclio/handler-pypy2-5.9-jessie',
-        'nuclio/processor-shell-alpine',
+        'quay.io/loop/controller',
+        'quay.io/loop/playground',
+        'quay.io/loop/processor-py2.7-alpine',
+        'quay.io/loop/processor-py2.7-jessie',
+        'quay.io/loop/processor-py3.6-alpine',
+        'quay.io/loop/processor-py3.6-jessie',
+        'quay.io/loop/handler-builder-golang-onbuild',
+        'quay.io/loop/processor-pypy2-5.9-jessie',
+        'quay.io/loop/handler-pypy2-5.9-jessie',
+        'quay.io/loop/processor-shell-alpine',
     ]:
         if name_matcher.search(image_url):
             _push_image('{0}:{1}'.format(image_url, tag))

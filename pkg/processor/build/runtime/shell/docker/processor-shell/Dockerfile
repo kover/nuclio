@@ -16,7 +16,7 @@
 # Build stage: builds the processor binary
 #
 
-FROM nuclio/processor as build
+FROM quay.io/loop/processor as build
 
 #
 # Output stage

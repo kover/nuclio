@@ -127,7 +127,7 @@ func getBaseImageName(versionInfo *version.Info,
 		return "", fmt.Errorf("Base image not supported: %s", baseImageName)
 	}
 
-	return fmt.Sprintf("nuclio/processor-py%s-%s:%s-%s",
+	return fmt.Sprintf("quay.io/loop/processor-py%s-%s:%s-%s",
 		runtimeVersion,
 		baseImageName,
 		versionInfo.Label,

@@ -14,7 +14,7 @@
 
 ARG NUCLIO_DOCKER_IMAGE_TAG_WITH_ARCH=latest-amd64
 
-FROM nuclio/processor AS processor
+FROM quay.io/loop/processor AS processor
 
 
 FROM node:9.3.0-alpine

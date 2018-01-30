@@ -80,7 +80,7 @@ func (n *nodejs) GetProcessorBaseImageName() (string, error) {
 		return "", errors.Wrap(err, "Failed to get version info")
 	}
 
-	return fmt.Sprintf("nuclio/handler-nodejs:%s-%s",
+	return fmt.Sprintf("quay.io/loop/handler-nodejs:%s-%s",
 		versionInfo.Label,
 		versionInfo.Arch), nil
 }
