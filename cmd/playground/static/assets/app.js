@@ -2156,7 +2156,7 @@ $(function () {
             },
             {
                 value: 'http',
-                label: 'HTTP'
+                label: 'DataHub HTTP'
             },
             {
                 value: 'nats',
